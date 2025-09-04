@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="生米一号_起飞 - 支持本地图片存储的网站，具有蓝色主题和双面板设计" />
+    <meta name="keywords" content="图片存储,图片发布,生米一号,本地存储,IndexedDB" />
+    <meta name="author" content="生米一号" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="生米一号_起飞" />
+    <meta property="og:description" content="支持本地图片存储的网站，具有蓝色主题和双面板设计" />
+    <meta property="og:url" content="https://your-username.github.io/shengmi-gallery/" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="生米一号_起飞" />
+    <meta property="twitter:description" content="支持本地图片存储的网站，具有蓝色主题和双面板设计" />
+    
+    <title>生米一号_起飞</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>米</text></svg>" />
+
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Supabase 配置
+        window.SUPABASE_CONFIG = {
+            url: 'https://sbxujlhhdzozlqygpcfn.supabase.co',
+            anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNieHVqbGhoZHpvemxxeWdwY2ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMDMyODYsImV4cCI6MjA3MjU3OTI4Nn0.iEaFfAbWRCwPH78REtacPIYZXtZvg45Y4WaxP-RcPIc'
+        };
+        window.TABLES = {
+            IMAGES: 'gallery_images',
+            GALLERIES: 'galleries'
+        };
+        window.STORAGE_BUCKET = 'gallery-images';
+    </script>
+
+    <style>
+        :root {
+            --blue-900: #0b3b74;
+            --blue-800: #114a8b;
+            --blue-700: #1557a6;
+            --blue-600: #1e6ad1;
+            --blue-500: #2a7be7;
+            --blue-400: #5aa0ff;
+            --blue-300: #8fc0ff;
+            --blue-200: #c7e0ff;
+            --bg: #071e3a;
+            --card: #0c2b52;
+            --muted: #9ec3ff;
+            --text: #eaf2ff;
+            --danger: #ff5f6d;
+            --shadow: 0 10px 30px rgba(0,0,0,.25);
+        }
+
+        /* Base */
+        html, body {
+            height: 100%;
+            margin: 0;
+            color: var(--text);
+            background: linear-gradient(180deg, var(--bg), #0b2e59 60%, #0e3b6f 100%);
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px 16px 48px;
+        }
+
+        /* Header */
+        .site-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px;
+            margin: 20px 0 12px;
+            background: radial-gradient(1200px 400px at 10% -40%, rgba(90, 160, 255, .25), transparent 60%),
+                        linear-gradient(180deg, rgba(17,74,139,.65), rgba(10,45,88,.65));
+            border: 1px solid rgba(138, 180, 248, 0.22);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(8px);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-logo {
+            width: 40px;
+            height: 40px;
+            display: grid;
+            place-items: center;
+            background: conic-gradient(from 210deg at 50% 50%, var(--blue-400), var(--blue-700), var(--blue-500));
+            border-radius: 12px;
+            box-shadow: inset 0 0 30px rgba(255,255,255,.08);
+        }
+
+        .brand-logo > span {
+            font-weight: 800;
+            color: #e6f1ff;
+        }
+
+        .brand-title {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: .5px;
+        }
+
+        /* Nav */
+        .nav {
+            display: flex;
+            gap: 8px;
+            background: rgba(8, 29, 63, .55);
+            padding: 6px;
+            border-radius: 12px;
+            border: 1px solid rgba(138, 180, 248, 0.22);
+        }
+
+        .nav button {
+            color: var(--muted);
+            background: transparent;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s ease;
+        }
+
+        .nav button:hover {
+            color: #fff;
+            background: rgba(42, 123, 231, .15);
+        }
+
+        .nav button.active {
+            color: #fff;
+            background: linear-gradient(180deg, rgba(42, 123, 231, .35), rgba(21, 87, 166, .35));
+            box-shadow: inset 0 0 0 1px rgba(90, 160, 255, .35);
+        }
+
+        /* Panel */
+        .panel {
+            margin-top: 14px;
+            padding: 18px;
+            background: linear-gradient(180deg, rgba(12, 43, 82, .8), rgba(10, 36, 68, .8));
+            border: 1px solid rgba(138, 180, 248, 0.2);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+        }
+
+        .uploader {
+            display: grid;
+            gap: 14px;
+        }
+
+        .dropzone {
+            display: grid;
+            place-items: center;
+            min-height: 140px;
+            border: 2px dashed rgba(138, 180, 248, 0.5);
+            border-radius: 14px;
+            color: var(--muted);
+            background: rgba(17, 74, 139, .15);
+            transition: background-color .2s ease, border-color .2s ease, transform .1s ease;
+        }
+
+        .dropzone.dragover {
+            background: rgba(42, 123, 231, .18);
+            border-color: var(--blue-400);
+            transform: scale(0.998);
+        }
+
+        .action-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .left-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(138, 180, 248, 0.25);
+            color: #fff;
+            background: linear-gradient(180deg, var(--blue-600), var(--blue-700));
+            cursor: pointer;
+            font-weight: 600;
+            letter-spacing: .3px;
+            transition: transform .06s ease, filter .2s ease;
+        }
+
+        .btn:hover { filter: brightness(1.05); }
+        .btn:active { transform: translateY(1px); }
+
+        .btn.secondary {
+            background: linear-gradient(180deg, rgba(42, 123, 231, .15), rgba(21, 87, 166, .15));
+            color: var(--muted);
+        }
+
+        .btn.danger {
+            background: linear-gradient(180deg, #ff7b86, #ff5f6d);
+            border-color: rgba(255, 140, 150, .45);
+        }
+
+        input[type="file"] { display: none; }
+
+        .hint {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        /* Gallery */
+        .gallery {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        .card {
+            position: relative;
+            background: linear-gradient(180deg, rgba(14, 49, 93, .8), rgba(9, 33, 65, .85));
+            border: 1px solid rgba(138, 180, 248, 0.18);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .card img {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            display: block;
+            background: #0a2d58;
+        }
+
+        .card .card-bar {
+            position: absolute;
+            inset: auto 0 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 8px 10px;
+            background: linear-gradient(180deg, transparent, rgba(0,0,0,.55));
+        }
+
+        .meta {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .tiny-btn {
+            appearance: none;
+            border: none;
+            background: rgba(255,255,255,.14);
+            color: #fff;
+            border-radius: 8px;
+            padding: 6px 8px;
+            cursor: pointer;
+            transition: background .2s ease;
+        }
+
+        .tiny-btn:hover { background: rgba(255,255,255,.22); }
+
+        .empty {
+            color: var(--muted);
+            text-align: center;
+            padding: 22px 0 4px;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 28px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        @media (min-width: 700px) {
+            .brand-title { font-size: 22px; }
+            .card img { height: 180px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="site-header">
+            <div class="brand">
+                <div class="brand-logo" aria-hidden="true"><span>米</span></div>
+                <div class="brand-title">生米一号_起飞</div>
+            </div>
+            <nav class="nav" role="tablist" aria-label="视图切换">
+                <button class="active" data-tab="tab-929hz" role="tab" aria-selected="true">9.29Hz</button>
+                <button data-tab="tab-shenshen" role="tab" aria-selected="false">深深的</button>
+            </nav>
+        </header>
+
+        <!-- 9.29Hz 面板 -->
+        <section id="tab-929hz" class="panel" role="tabpanel">
+            <div class="uploader" data-scope="929hz">
+                <div class="dropzone" data-dropzone>
+                    <div>
+                        <div>拖拽图片到此处，或使用下方按钮上传</div>
+                        <div class="hint">支持 JPG/PNG/GIF/WebP，最多 10MB/张</div>
+                    </div>
+                </div>
+                <div class="action-row">
+                    <div class="left-actions">
+                        <label class="btn">
+                            选择图片
+                            <input type="file" accept="image/*" multiple />
+                        </label>
+                        <button class="btn secondary" data-export>导出本页数据</button>
+                    </div>
+                    <button class="btn danger" data-clear>清空本页图片</button>
+                </div>
+                <div class="gallery" data-gallery></div>
+                <div class="empty" data-empty style="display:none">还没有图片，快来发布一张吧！</div>
+            </div>
+        </section>
+
+        <!-- 深深的 面板 -->
+        <section id="tab-shenshen" class="panel" role="tabpanel" hidden>
+            <div class="uploader" data-scope="shenshen">
+                <div class="dropzone" data-dropzone>
+                    <div>
+                        <div>拖拽图片到此处，或使用下方按钮上传</div>
+                        <div class="hint">支持 JPG/PNG/GIF/WebP，最多 10MB/张</div>
+                    </div>
+                </div>
+                <div class="action-row">
+                    <div class="left-actions">
+                        <label class="btn">
+                            选择图片
+                            <input type="file" accept="image/*" multiple />
+                        </label>
+                        <button class="btn secondary" data-export>导出本页数据</button>
+                    </div>
+                    <button class="btn danger" data-clear>清空本页图片</button>
+                </div>
+                <div class="gallery" data-gallery></div>
+                <div class="empty" data-empty style="display:none">还没有图片，快来发布一张吧！</div>
+            </div>
+        </section>
+
+        <div class="footer">
+            © 生米一号_起飞 — 云端同步，所有人共享图片库<br>
+            <small style="opacity: 0.7;">支持现代浏览器 | 使用 Supabase 云存储 | 实时同步到所有用户</small>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            "use strict";
+
+            const TABS = {
+                "tab-929hz": {
+                    key: "929hz",
+                    title: "9.29Hz"
+                },
+                "tab-shenshen": {
+                    key: "shenshen", 
+                    title: "深深的"
+                }
+            };
+
+            const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+            // ---------- Supabase 客户端 ----------
+            let supabase = null;
+            let isOnline = navigator.onLine;
+
+            async function initSupabase() {
+                try {
+                    if (typeof supabase === 'undefined' || !window.SUPABASE_CONFIG) {
+                        console.warn('Supabase 未配置，使用本地存储模式');
+                        return false;
+                    }
+                    
+                    supabase = window.supabase.createClient(
+                        window.SUPABASE_CONFIG.url,
+                        window.SUPABASE_CONFIG.anonKey
+                    );
+                    
+                    // 测试连接
+                    const { data, error } = await supabase
+                        .from(window.TABLES.IMAGES)
+                        .select('count')
+                        .limit(1);
+                    
+                    if (error) {
+                        console.warn('Supabase 连接失败，使用本地存储模式:', error);
+                        return false;
+                    }
+                    
+                    console.log('Supabase 连接成功');
+                    return true;
+                } catch (e) {
+                    console.warn('Supabase 初始化失败，使用本地存储模式:', e);
+                    return false;
+                }
+            }
+
+            // ---------- 云端存储函数 ----------
+            async function uploadImageToCloud(file, galleryName) {
+                if (!supabase) throw new Error('Supabase 未初始化');
+                
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+                const filePath = `${galleryName}/${fileName}`;
+                
+                // 上传到存储桶
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from(window.STORAGE_BUCKET)
+                    .upload(filePath, file);
+                
+                if (uploadError) throw uploadError;
+                
+                // 获取公开URL
+                const { data: urlData } = supabase.storage
+                    .from(window.STORAGE_BUCKET)
+                    .getPublicUrl(filePath);
+                
+                // 保存到数据库
+                const { data: dbData, error: dbError } = await supabase
+                    .from(window.TABLES.IMAGES)
+                    .insert({
+                        gallery_name: galleryName,
+                        file_name: file.name,
+                        file_size: file.size,
+                        file_type: file.type,
+                        storage_path: filePath,
+                        created_by: 'anonymous'
+                    })
+                    .select()
+                    .single();
+                
+                if (dbError) throw dbError;
+                
+                return {
+                    id: dbData.id,
+                    name: file.name,
+                    sizeText: formatBytes(file.size),
+                    imageUrl: urlData.publicUrl,
+                    createdAt: new Date(dbData.created_at).getTime()
+                };
+            }
+
+            async function getImagesFromCloud(galleryName) {
+                if (!supabase) {
+                    // 降级到本地存储
+                    return getImagesFromLocal(galleryName);
+                }
+                
+                const { data, error } = await supabase
+                    .from(window.TABLES.IMAGES)
+                    .select('*')
+                    .eq('gallery_name', galleryName)
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                
+                return data.map(item => ({
+                    id: item.id,
+                    name: item.file_name,
+                    sizeText: formatBytes(item.file_size),
+                    imageUrl: supabase.storage
+                        .from(window.STORAGE_BUCKET)
+                        .getPublicUrl(item.storage_path).data.publicUrl,
+                    createdAt: new Date(item.created_at).getTime()
+                }));
+            }
+
+            async function deleteImageFromCloud(imageId, storagePath) {
+                if (!supabase) {
+                    // 降级到本地存储
+                    return deleteImageFromLocal(imageId);
+                }
+                
+                // 从存储桶删除文件
+                const { error: storageError } = await supabase.storage
+                    .from(window.STORAGE_BUCKET)
+                    .remove([storagePath]);
+                
+                if (storageError) console.warn('删除存储文件失败:', storageError);
+                
+                // 从数据库删除记录
+                const { error: dbError } = await supabase
+                    .from(window.TABLES.IMAGES)
+                    .delete()
+                    .eq('id', imageId);
+                
+                if (dbError) throw dbError;
+            }
+
+            async function clearGalleryFromCloud(galleryName) {
+                if (!supabase) {
+                    // 降级到本地存储
+                    return clearGalleryFromLocal(galleryName);
+                }
+                
+                // 获取该画廊的所有图片
+                const { data: images } = await supabase
+                    .from(window.TABLES.IMAGES)
+                    .select('storage_path')
+                    .eq('gallery_name', galleryName);
+                
+                if (images && images.length > 0) {
+                    // 删除存储文件
+                    const paths = images.map(img => img.storage_path);
+                    await supabase.storage
+                        .from(window.STORAGE_BUCKET)
+                        .remove(paths);
+                }
+                
+                // 删除数据库记录
+                const { error } = await supabase
+                    .from(window.TABLES.IMAGES)
+                    .delete()
+                    .eq('gallery_name', galleryName);
+                
+                if (error) throw error;
+            }
+
+            // ---------- 本地存储降级函数 ----------
+            function getImagesFromLocal(galleryName) {
+                try {
+                    const key = `gallery_${galleryName}`;
+                    const data = localStorage.getItem(key);
+                    return data ? JSON.parse(data) : [];
+                } catch (e) {
+                    return [];
+                }
+            }
+
+            function saveImagesToLocal(galleryName, images) {
+                try {
+                    const key = `gallery_${galleryName}`;
+                    localStorage.setItem(key, JSON.stringify(images));
+                } catch (e) {
+                    console.warn('本地存储失败:', e);
+                }
+            }
+
+            function deleteImageFromLocal(imageId) {
+                // 这里需要重新加载所有画廊来找到要删除的图片
+                // 为了简化，我们重新加载当前画廊
+                return Promise.resolve();
+            }
+
+            function clearGalleryFromLocal(galleryName) {
+                try {
+                    const key = `gallery_${galleryName}`;
+                    localStorage.removeItem(key);
+                } catch (e) {
+                    console.warn('清空本地存储失败:', e);
+                }
+            }
+
+            const nav = document.querySelector('.nav');
+            const tabButtons = Array.from(nav.querySelectorAll('button'));
+            const panels = {
+                "tab-929hz": document.getElementById('tab-929hz'),
+                "tab-shenshen": document.getElementById('tab-shenshen')
+            };
+
+            function persistActiveTab(id) {
+                try { localStorage.setItem('active_tab', id); } catch (e) {}
+            }
+
+            function restoreActiveTab() {
+                const saved = localStorage.getItem('active_tab');
+                if (saved && panels[saved]) {
+                    switchTab(saved);
+                }
+            }
+
+            function switchTab(id) {
+                tabButtons.forEach(b => {
+                    const isActive = b.dataset.tab === id;
+                    b.classList.toggle('active', isActive);
+                    b.setAttribute('aria-selected', String(isActive));
+                });
+                Object.entries(panels).forEach(([pid, el]) => {
+                    el.hidden = pid !== id;
+                });
+                persistActiveTab(id);
+            }
+
+            nav.addEventListener('click', (e) => {
+                const btn = e.target.closest('button[data-tab]');
+                if (!btn) return;
+                switchTab(btn.dataset.tab);
+            });
+
+            // ---------- 工具函数 ----------
+            function formatBytes(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+                return (bytes/1024/1024).toFixed(1) + ' MB';
+            }
+
+            function createCard(item, galleryName, onChange) {
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                const img = document.createElement('img');
+                img.loading = 'lazy';
+                img.src = item.imageUrl || item.dataUrl;
+                img.alt = item.name || 'image';
+
+                const bar = document.createElement('div');
+                bar.className = 'card-bar';
+
+                const meta = document.createElement('div');
+                meta.className = 'meta';
+                meta.textContent = (item.name || '图片') + ' · ' + (item.sizeText || '');
+
+                const actions = document.createElement('div');
+                const del = document.createElement('button');
+                del.className = 'tiny-btn';
+                del.textContent = '删除';
+                del.title = '删除此图片';
+                del.addEventListener('click', async () => {
+                    try {
+                        if (supabase) {
+                            // 需要获取存储路径来删除云端文件
+                            const { data } = await supabase
+                                .from(window.TABLES.IMAGES)
+                                .select('storage_path')
+                                .eq('id', item.id)
+                                .single();
+                            
+                            if (data) {
+                                await deleteImageFromCloud(item.id, data.storage_path);
+                            }
+                        } else {
+                            // 本地存储模式
+                            const currentImages = getImagesFromLocal(galleryName);
+                            const updatedImages = currentImages.filter(img => img.id !== item.id);
+                            saveImagesToLocal(galleryName, updatedImages);
+                        }
+                        
+                        const list = await getImagesFromCloud(galleryName);
+                        onChange(list);
+                    } catch (e) {
+                        alert('删除失败：' + e.message);
+                    }
+                });
+
+                actions.appendChild(del);
+                bar.appendChild(meta);
+                bar.appendChild(actions);
+
+                card.appendChild(img);
+                card.appendChild(bar);
+                return card;
+            }
+
+            function setupUploader(root) {
+                const scope = root.getAttribute('data-scope');
+                const galleryName = scope === '929hz' ? TABS['tab-929hz'].key : TABS['tab-shenshen'].key;
+                const dropzone = root.querySelector('[data-dropzone]');
+                const input = root.querySelector('input[type="file"]');
+                const gallery = root.querySelector('[data-gallery]');
+                const empty = root.querySelector('[data-empty]');
+                const btnClear = root.querySelector('[data-clear]');
+                const btnExport = root.querySelector('[data-export]');
+
+                function render(items) {
+                    gallery.innerHTML = '';
+                    if (!items.length) {
+                        empty.style.display = '';
+                        return;
+                    }
+                    empty.style.display = 'none';
+                    const frag = document.createDocumentFragment();
+                    items.forEach(it => frag.appendChild(createCard(it, galleryName, render)));
+                    gallery.appendChild(frag);
+                }
+
+                async function loadImages() {
+                    try {
+                        const items = await getImagesFromCloud(galleryName);
+                        render(items);
+                    } catch (e) {
+                        console.error('加载图片失败:', e);
+                        render([]);
+                    }
+                }
+
+                async function handleFiles(fileList) {
+                    const files = Array.from(fileList || []);
+                    if (!files.length) return;
+
+                    for (const f of files) {
+                        if (!f.type.startsWith('image/')) continue;
+                        if (f.size > MAX_FILE_SIZE) {
+                            alert(`文件过大：${f.name}（${formatBytes(f.size)}），上限 10MB`);
+                            continue;
+                        }
+
+                        try {
+                            if (supabase) {
+                                // 云端模式
+                                const item = await uploadImageToCloud(f, galleryName);
+                                await loadImages(); // 重新加载
+                            } else {
+                                // 本地模式
+                                const dataUrl = await new Promise((resolve, reject) => {
+                                    const reader = new FileReader();
+                                    reader.onload = () => resolve(reader.result);
+                                    reader.onerror = reject;
+                                    reader.readAsDataURL(f);
+                                });
+                                
+                                const currentImages = getImagesFromLocal(galleryName);
+                                const newItem = {
+                                    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+                                    name: f.name,
+                                    sizeText: formatBytes(f.size),
+                                    dataUrl: dataUrl,
+                                    createdAt: Date.now()
+                                };
+                                currentImages.unshift(newItem);
+                                saveImagesToLocal(galleryName, currentImages);
+                                render(currentImages);
+                            }
+                        } catch (e) {
+                            console.error('上传失败详情:', e);
+                            alert('上传失败：' + e.message + '\n\n请检查：\n1. Supabase 配置是否正确\n2. 网络连接是否正常\n3. 数据库表是否已创建');
+                        }
+                    }
+                }
+
+                // Drag & drop
+                dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.add('dragover');
+                });
+                dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+                dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.remove('dragover');
+                    handleFiles(e.dataTransfer.files);
+                });
+
+                // Input
+                input.addEventListener('change', (e) => handleFiles(e.target.files));
+
+                // Clear
+                btnClear.addEventListener('click', async () => {
+                    if (confirm('确定要清空本页所有图片吗？此操作不可撤销。')) {
+                        try {
+                            if (supabase) {
+                                await clearGalleryFromCloud(galleryName);
+                            } else {
+                                clearGalleryFromLocal(galleryName);
+                            }
+                            render([]);
+                        } catch (e) {
+                            alert('清空失败：' + e.message);
+                        }
+                    }
+                });
+
+                // Export
+                btnExport.addEventListener('click', async () => {
+                    try {
+                        const data = await getImagesFromCloud(galleryName);
+                        const mapped = data.map(({ id, name, sizeText, imageUrl, dataUrl, createdAt }) => ({ 
+                            id, name, sizeText, 
+                            imageUrl: imageUrl || dataUrl, 
+                            createdAt 
+                        }));
+                        const blob = new Blob([JSON.stringify(mapped, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${scope}-gallery.json`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(url);
+                    } catch (e) {
+                        alert('导出失败：' + e.message);
+                    }
+                });
+
+                // 初始化
+                loadImages();
+            }
+
+            // ---------- 实时同步 ----------
+            function setupRealtimeSync() {
+                if (!supabase) return;
+
+                // 监听图片表的变化
+                supabase
+                    .channel('gallery_changes')
+                    .on('postgres_changes', 
+                        { 
+                            event: '*', 
+                            schema: 'public', 
+                            table: window.TABLES.IMAGES 
+                        }, 
+                        (payload) => {
+                            console.log('检测到图片变化:', payload);
+                            // 重新加载所有画廊
+                            document.querySelectorAll('.uploader').forEach(uploader => {
+                                const scope = uploader.getAttribute('data-scope');
+                                const galleryName = scope === '929hz' ? TABS['tab-929hz'].key : TABS['tab-shenshen'].key;
+                                getImagesFromCloud(galleryName).then(items => {
+                                    const gallery = uploader.querySelector('[data-gallery]');
+                                    const empty = uploader.querySelector('[data-empty]');
+                                    
+                                    gallery.innerHTML = '';
+                                    if (!items.length) {
+                                        empty.style.display = '';
+                                        return;
+                                    }
+                                    empty.style.display = 'none';
+                                    const frag = document.createDocumentFragment();
+                                    items.forEach(it => frag.appendChild(createCard(it, galleryName, () => {})));
+                                    gallery.appendChild(frag);
+                                });
+                            });
+                        }
+                    )
+                    .subscribe();
+            }
+
+            // ---------- 初始化 ----------
+            (async () => {
+                // 初始化 Supabase
+                const supabaseReady = await initSupabase();
+                
+                // 设置上传器
+                document.querySelectorAll('.uploader').forEach(setupUploader);
+                
+                // 恢复活动标签
+                restoreActiveTab();
+                
+                // 设置实时同步
+                if (supabaseReady) {
+                    setupRealtimeSync();
+                }
+                
+                // 监听网络状态
+                window.addEventListener('online', () => {
+                    isOnline = true;
+                    console.log('网络已连接');
+                });
+                
+                window.addEventListener('offline', () => {
+                    isOnline = false;
+                    console.log('网络已断开');
+                });
+            })();
+        })();
+    </script>
+</body>
+</html>
+
+
